@@ -8,7 +8,7 @@ public class Cell {
     private boolean isInVision = true;
     private int row;
     private int column;
-    
+
     Cell(int row, int column) {
         this.row = row;
         this.column = column;

@@ -16,20 +16,48 @@ public class AI {
 	public void moveTurn(World world) {
 		Hero[] heroes = world.getMyHeroes();
 		Cell[] positions = Arrays.stream(heroes).map(Hero::getCurrentCell).toArray(Cell[]::new);
+		int AP = world.getAP();
 
-		for (Hero hero : heroes) {
-			Cell currentPosition = hero.getCurrentCell();
+		for (int i = 0; i < heroes.length; ++i) {
+			Hero hero = heroes[i];
+			if (hero.getCurrentHP() != 0 && AP < hero.getMoveAPCost()) continue;
+			Cell currentPosition = positions[i];
+
 			// If in objective zone, hold ground
 			if (currentPosition.isInObjectiveZone()) continue;
 
 			// Otherwise try to reach the nearest objective zone cell
 			Cell[] objectiveZone = Arrays.stream(world.getMap().getObjectiveZone()).sorted(Comparator.comparingInt(o -> world.manhattanDistance(currentPosition, o))).toArray(Cell[]::new);
+
 			// Try to select an objective zone and move toward it
-			for (Cell objective : objectiveZone) {
+			for (Cell objective : objectiveZone) {  // FIXME spread around the zone
 				// Pass my hero positions as blocked cells so the path won't be blocked
 				Direction[] toTheObjective = world.getPathMoveDirections(currentPosition, objective, positions);
-				if (toTheObjective.length != 0)
+				if (toTheObjective.length != 0) {
 					world.moveHero(hero.getId(), toTheObjective[0]);  // TODO heroes should get closer to each other to cast defensive abilities
+
+					// Update AP changes
+					AP -= hero.getMoveAPCost();
+
+					// Update position changes
+					int rowChange = 0, columnChange = 0;
+					switch (toTheObjective[0]) {
+						case DOWN:
+							++rowChange;
+							break;
+						case UP:
+							--rowChange;
+							break;
+						case LEFT:
+							--columnChange;
+							break;
+						default:
+							++columnChange;
+					}
+					positions[i] = world.getMap().getCell(currentPosition.getRow() + rowChange, currentPosition.getColumn() + columnChange);
+
+					break;
+				}
 			}
 		}
 	}
@@ -54,6 +82,7 @@ public class AI {
 							}
 						}
 					}
+				case GUARDIAN:  // TODO low range so they should get close to enemy... need support
 			}
 			// Attack with whatever you got
 			for (Ability ability : hero.getOffensiveAbilities()) {
