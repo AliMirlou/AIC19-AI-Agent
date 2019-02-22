@@ -20,6 +20,7 @@ public class AI {
 		Hero[] heroes = world.getMyHeroes();
 		Cell[] positions = Arrays.stream(heroes).map(Hero::getCurrentCell).toArray(Cell[]::new);
 		int AP = world.getAP();
+		Map map = world.getMap();
 
 		for (int i = 0; i < heroes.length; ++i) {
 			Hero hero = heroes[i];
@@ -30,7 +31,7 @@ public class AI {
 			if (currentPosition.isInObjectiveZone()) continue;
 
 			// Otherwise try to reach the nearest objective zone cell
-			Pair[] objectiveZone = Arrays.stream(world.getMap().getObjectiveZone()).map(cell -> new Pair<>(cell, world.manhattanDistance(currentPosition, cell))).sorted(Comparator.comparingInt(Pair::getSecond)).toArray(Pair[]::new);
+			Pair[] objectiveZone = Arrays.stream(map.getObjectiveZone()).map(cell -> new Pair<>(cell, world.manhattanDistance(currentPosition, cell))).sorted(Comparator.comparingInt(Pair::getSecond)).toArray(Pair[]::new);
 
 			// Try to select an objective zone and move toward it
 			for (Pair objective : objectiveZone) {  // FIXME spread around the zone
@@ -57,7 +58,7 @@ public class AI {
 						default:
 							++columnChange;
 					}
-					positions[i] = world.getMap().getCell(currentPosition.getRow() + rowChange, currentPosition.getColumn() + columnChange);
+					positions[i] = map.getCell(currentPosition.getRow() + rowChange, currentPosition.getColumn() + columnChange);
 
 					break;
 				}
