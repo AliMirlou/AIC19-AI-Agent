@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 public class AI {
+	private int phase = 0;
+
 	public void preProcess(World world) {
 	}
 
@@ -14,6 +16,7 @@ public class AI {
 	}
 
 	public void moveTurn(World world) {
+		phase++;
 		Hero[] heroes = world.getMyHeroes();
 		Cell[] positions = Arrays.stream(heroes).map(Hero::getCurrentCell).toArray(Cell[]::new);
 		int AP = world.getAP();
@@ -27,12 +30,12 @@ public class AI {
 			if (currentPosition.isInObjectiveZone()) continue;
 
 			// Otherwise try to reach the nearest objective zone cell
-			Cell[] objectiveZone = Arrays.stream(world.getMap().getObjectiveZone()).sorted(Comparator.comparingInt(o -> world.manhattanDistance(currentPosition, o))).toArray(Cell[]::new);
+			Pair[] objectiveZone = Arrays.stream(world.getMap().getObjectiveZone()).map(cell -> new Pair<>(cell, world.manhattanDistance(currentPosition, cell))).sorted(Comparator.comparingInt(Pair::getSecond)).toArray(Pair[]::new);
 
 			// Try to select an objective zone and move toward it
-			for (Cell objective : objectiveZone) {  // FIXME spread around the zone
+			for (Pair objective : objectiveZone) {  // FIXME spread around the zone
 				// Pass my hero positions as blocked cells so the path won't be blocked
-				Direction[] toTheObjective = world.getPathMoveDirections(currentPosition, objective, positions);
+				Direction[] toTheObjective = world.getPathMoveDirections(currentPosition, (Cell) objective.getFirst(), positions);
 				if (toTheObjective.length != 0) {
 					world.moveHero(hero.getId(), toTheObjective[0]);  // TODO heroes should get closer to each other to cast defensive abilities
 
@@ -63,6 +66,7 @@ public class AI {
 	}
 
 	public void actionTurn(World world) {
+		phase = 0;
 		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
 		Hero[] visibleEnemies = Arrays.stream(world.getOppHeroes()).filter(hero -> hero.getCurrentCell().isInVision()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
 		heroes:
