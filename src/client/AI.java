@@ -8,6 +8,24 @@ import java.util.Comparator;
 public class AI {
 	private int phase = 0;
 
+	private Cell getNewPosition(Map map, Cell cell, Direction direction) {
+		int rowChange = 0, columnChange = 0;
+		switch (direction) {
+			case DOWN:
+				++rowChange;
+				break;
+			case UP:
+				--rowChange;
+				break;
+			case LEFT:
+				--columnChange;
+				break;
+			default:
+				++columnChange;
+		}
+		return map.getCell(cell.getRow() + rowChange, cell.getColumn() + columnChange);
+	}
+
 	public void preProcess(World world) {
 	}
 
@@ -44,21 +62,7 @@ public class AI {
 					AP -= hero.getMoveAPCost();
 
 					// Update position changes
-					int rowChange = 0, columnChange = 0;
-					switch (toTheObjective[0]) {
-						case DOWN:
-							++rowChange;
-							break;
-						case UP:
-							--rowChange;
-							break;
-						case LEFT:
-							--columnChange;
-							break;
-						default:
-							++columnChange;
-					}
-					positions[i] = map.getCell(currentPosition.getRow() + rowChange, currentPosition.getColumn() + columnChange);
+					positions[i] = getNewPosition(map, currentPosition, toTheObjective[0]);
 
 					break;
 				}
