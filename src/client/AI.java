@@ -34,7 +34,20 @@ public class AI {
 	}
 
 	public void pickTurn(World world) {
-		world.pickHero(HeroName.values()[world.getCurrentTurn()]);
+		switch (world.getCurrentTurn()) {
+			case 0:
+				world.pickHero(HeroName.HEALER);
+				break;
+			case 1:
+				world.pickHero(HeroName.BLASTER);
+				break;
+			case 2:
+				world.pickHero(HeroName.SENTRY);
+				break;
+			case 3:
+				world.pickHero(HeroName.BLASTER);
+				break;
+		}
 	}
 
 	public void moveTurn(World world) {
