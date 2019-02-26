@@ -9,6 +9,7 @@ import java.util.HashMap;
 public class AI {
 	private int phase = 0;
 	private int AP = -1;
+	private HashMap<Integer, Cell> destinations;  // Keys are hero IDs and values are the current destination of hero
 	private HashMap<Integer, Cell> dodgeInsteadOfMove;  // Keys are hero IDs and values are the destination of dodge
 
 	private Cell getNewPosition(Cell cell, Direction direction, Map map) {
@@ -30,6 +31,7 @@ public class AI {
 	}
 
 	public void preProcess(World world) {
+		destinations = new HashMap<>();
 		dodgeInsteadOfMove = new HashMap<>();
 	}
 
@@ -52,7 +54,10 @@ public class AI {
 
 	public void moveTurn(World world) {
 		++phase;
-		Hero[] heroes = world.getMyHeroes();
+		// Decide hero movements in order of their distance from their destinations
+		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(
+				hero -> destinations.containsKey(hero.getId()) ? world.manhattanDistance(hero.getCurrentCell(), destinations.get(hero.getId())) : Integer.MAX_VALUE
+		)).toArray(Hero[]::new);
 		Cell[] positions = Arrays.stream(heroes).map(Hero::getCurrentCell).toArray(Cell[]::new);
 		AP = (AP == -1) ? world.getAP() : AP;
 		Map map = world.getMap();
@@ -78,6 +83,8 @@ public class AI {
 				// Pass my hero positions as blocked cells so the path won't be blocked
 				Direction[] toTheObjective = world.getPathMoveDirections(currentPosition, destination, positions);
 				if (toTheObjective.length != 0) {
+					destinations.put(ID, destination);
+
 					// Check if it is worth to not to move and instead dodge at action phase
 					Ability dodge = hero.getDodgeAbilities()[0];
 					if (phase == 1 && AP >= dodge.getAPCost() && dodge.isReady() && toTheObjective.length - (7 - phase) >= distance - dodge.getRange()) {
