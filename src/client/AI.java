@@ -55,7 +55,7 @@ public class AI {
 	public void moveTurn(World world) {
 		++phase;
 		// Decide hero movements in order of their distance from their destinations
-		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(
+		Hero[] heroes = Arrays.stream(world.getMyHeroes()).filter(hero -> hero.getCurrentHP() != 0).sorted(Comparator.comparingInt(
 				hero -> destinations.containsKey(hero.getId()) ? world.manhattanDistance(hero.getCurrentCell(), destinations.get(hero.getId())) : Integer.MAX_VALUE
 		)).toArray(Hero[]::new);
 		Cell[] positions = Arrays.stream(heroes).map(Hero::getCurrentCell).toArray(Cell[]::new);
@@ -66,7 +66,7 @@ public class AI {
 		for (int i = 0; i < heroes.length; ++i) {
 			Hero hero = heroes[i];
 			int ID = hero.getId();
-			if (hero.getCurrentHP() == 0 || AP < hero.getMoveAPCost() || dodgeInsteadOfMove.containsKey(ID)) continue;
+			if (AP < hero.getMoveAPCost() || dodgeInsteadOfMove.containsKey(ID)) continue;
 			Cell currentPosition = positions[i];
 
 			// If in objective zone, hold ground
@@ -127,7 +127,7 @@ public class AI {
 		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
 		Hero[] visibleEnemies = Arrays.stream(world.getOppHeroes()).filter(hero -> hero.getCurrentCell().isInVision()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
 
-		// First perform the scheduled dodges
+		// Perform the decided dodges first
 		for (int ID : dodgeInsteadOfMove.keySet()) {
 			Cell dest = dodgeInsteadOfMove.get(ID);
 			world.castAbility(ID, world.getHero(ID).getDodgeAbilities()[0].getName(), dest.getRow(), dest.getColumn());
@@ -168,6 +168,7 @@ public class AI {
 				AbilityName abilityName = ability.getName();
 				for (Hero enemy : visibleEnemies) {
 					Cell enemyPosition = enemy.getCurrentCell();
+
 					// Non-lobbing abilities require the target cell to be visible by the caster
 					if (!ability.isLobbing() && !world.isInVision(myPosition, enemyPosition)) continue;
 
