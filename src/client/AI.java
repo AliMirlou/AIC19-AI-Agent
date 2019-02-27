@@ -165,15 +165,18 @@ public class AI {
 			// Attack with whatever you got
 			for (Ability ability : hero.getOffensiveAbilities()) {
 				if (!ability.isReady()) continue;
+				AbilityName abilityName = ability.getName();
 				for (Hero enemy : visibleEnemies) {
 					Cell enemyPosition = enemy.getCurrentCell();
 					// Non-lobbing abilities require the target cell to be visible by the caster
-					if (!ability.isLobbing() && !world.isInVision(hero.getCurrentCell(), enemy.getCurrentCell())) continue;
+					if (!ability.isLobbing() && !world.isInVision(myPosition, enemyPosition)) continue;
 
 					// Check if it hits anyone
-					if (world.getAbilityTargets(ability.getName(), myPosition, enemyPosition).length != 0) {
-						world.castAbility(ID, ability.getName(), enemyPosition.getRow(), enemyPosition.getColumn());
+					if (world.getAbilityTargets(abilityName, myPosition, enemyPosition).length != 0) {
+						world.castAbility(ID, abilityName, enemyPosition.getRow(), enemyPosition.getColumn());
 						continue heroes;
+					} else {
+						// TODO get closer to target to be able to cast ability
 					}
 				}
 			}
