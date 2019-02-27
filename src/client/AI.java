@@ -167,7 +167,10 @@ public class AI {
 				if (!ability.isReady()) continue;
 				for (Hero enemy : visibleEnemies) {
 					Cell enemyPosition = enemy.getCurrentCell();
-					if (ability.isLobbing() && !world.isInVision(hero.getCurrentCell(), enemy.getCurrentCell())) continue;
+					// Non-lobbing abilities require the target cell to be visible by the caster
+					if (!ability.isLobbing() && !world.isInVision(hero.getCurrentCell(), enemy.getCurrentCell())) continue;
+
+					// Check if it hits anyone
 					if (world.getAbilityTargets(ability.getName(), myPosition, enemyPosition).length != 0) {
 						world.castAbility(ID, ability.getName(), enemyPosition.getRow(), enemyPosition.getColumn());
 						continue heroes;
