@@ -167,11 +167,10 @@ public class AI {
 				if (!ability.isReady()) continue;
 				for (Hero enemy : visibleEnemies) {
 					Cell enemyPosition = enemy.getCurrentCell();
-					if (world.isInVision(hero.getCurrentCell(), enemy.getCurrentCell())) {
-						if (world.getAbilityTargets(ability.getName(), myPosition, enemyPosition).length != 0) {
-							world.castAbility(ID, ability.getName(), enemyPosition.getRow(), enemyPosition.getColumn());
-							continue heroes;
-						}
+					if (ability.isLobbing() && !world.isInVision(hero.getCurrentCell(), enemy.getCurrentCell())) continue;
+					if (world.getAbilityTargets(ability.getName(), myPosition, enemyPosition).length != 0) {
+						world.castAbility(ID, ability.getName(), enemyPosition.getRow(), enemyPosition.getColumn());
+						continue heroes;
 					}
 				}
 			}
