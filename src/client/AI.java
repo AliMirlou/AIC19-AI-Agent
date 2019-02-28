@@ -9,6 +9,7 @@ import java.util.HashMap;
 public class AI {
 	private int phase = 0;
 	private int AP = -1;
+	private Cell[] bestDestinations;
 	private HashMap<Integer, Cell> destinations;  // Keys are hero IDs and values are the current destination of hero
 	private HashMap<Integer, Cell> dodgeInsteadOfMove;  // Keys are hero IDs and values are the destination of dodge
 
@@ -30,9 +31,77 @@ public class AI {
 		return map.getCell(cell.getRow() + rowChange, cell.getColumn() + columnChange);
 	}
 
+	private boolean isInBadDistance(Cell target, Cell[] otherCells, World world) {
+		for (Cell cell : otherCells) {
+			if (cell == null) continue;
+			int distance = world.manhattanDistance(cell, target);
+			if (distance < 4 || distance > 4) return true;
+		}
+		return false;
+	}
+
+	private boolean isWorthDodging(Hero hero, Cell destination, int distance, Direction[] toTheObjective, Cell[] positions, World world) {
+		Map map = world.getMap();
+		int ID = hero.getId();
+		Cell currentPosition = hero.getCurrentCell();
+		Ability dodge = hero.getDodgeAbilities()[0];
+		if (phase == 1 && AP >= dodge.getAPCost() && dodge.isReady() && toTheObjective.length - (7 - phase) >= distance - dodge.getRange()) {
+			Cell nearer = currentPosition;
+			for (int j = 0; j < dodge.getRange(); ++j) {
+				Cell next = nearer;
+				int left = distance;
+				for (int k = 0; k < 4; ++k) {
+					Cell temp = getNewPosition(nearer, Direction.values()[k], map);
+					int leftTemp = world.manhattanDistance(destination, temp);
+					if (leftTemp < left) {
+						next = temp;
+						left = leftTemp;
+					}
+				}
+				nearer = next;
+			}
+			if (!nearer.isWall() && world.getPathMoveDirections(nearer, destination, positions).length < toTheObjective.length) {
+				dodgeInsteadOfMove.put(ID, nearer);
+				AP -= dodge.getAPCost();
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public void preProcess(World world) {
 		destinations = new HashMap<>();
 		dodgeInsteadOfMove = new HashMap<>();
+
+		// Find 4 best objective cells for heroes to stand
+		Cell[] objectiveZone = world.getMap().getObjectiveZone(), temp = new Cell[4];
+		int numOfObjectives = objectiveZone.length;
+		Cell nearest = objectiveZone[numOfObjectives / 2], compare = world.getMap().getMyRespawnZone()[0];
+
+		for (int i1 = 0; i1 < numOfObjectives; ++i1) {
+			temp[0] = objectiveZone[i1];
+			for (int i2 = i1 + 1; i2 < numOfObjectives; ++i2) {
+				if (isInBadDistance(objectiveZone[i2], temp, world)) continue;
+				temp[1] = objectiveZone[i2];
+				for (int i3 = i2 + 1; i3 < numOfObjectives; ++i3) {
+					if (isInBadDistance(objectiveZone[i3], temp, world)) continue;
+					temp[2] = objectiveZone[i3];
+					for (int i4 = i3 + 1; i4 < numOfObjectives; ++i4) {
+						if (isInBadDistance(objectiveZone[i4], temp, world)) continue;
+						temp[3] = objectiveZone[i4];
+						temp = Arrays.stream(temp).sorted(Comparator.comparingInt(cell -> world.manhattanDistance(compare, cell))).toArray(Cell[]::new);
+						if (world.manhattanDistance(compare, temp[0]) < world.manhattanDistance(compare, nearest)) {
+							bestDestinations = temp.clone();
+							nearest = temp[0];
+						}
+						temp[3] = null;
+					}
+					temp[2] = null;
+				}
+				temp[1] = null;
+			}
+			temp[0] = null;
+		}
 	}
 
 	public void pickTurn(World world) {
@@ -54,6 +123,25 @@ public class AI {
 
 	public void moveTurn(World world) {
 		++phase;
+
+		if (destinations.isEmpty() && bestDestinations != null && bestDestinations.length == 4) {
+			int dummyIndex = 2;
+			for (Hero hero : world.getMyHeroes()) {
+				Cell destination;
+				switch (hero.getName()) {
+					case HEALER:
+						destination = bestDestinations[0];
+						break;
+					case SENTRY:
+						destination = bestDestinations[1];
+						break;
+					default:
+						destination = bestDestinations[dummyIndex++];
+				}
+				destinations.put(hero.getId(), destination);
+			}
+		}
+
 		// Decide hero movements in order of their distance from their destinations
 		Hero[] heroes = Arrays.stream(world.getMyHeroes()).filter(hero -> hero.getCurrentHP() != 0).sorted(Comparator.comparingInt(
 				hero -> destinations.containsKey(hero.getId()) ? world.manhattanDistance(hero.getCurrentCell(), destinations.get(hero.getId())) : Integer.MAX_VALUE
@@ -69,14 +157,38 @@ public class AI {
 			if (AP < hero.getMoveAPCost() || dodgeInsteadOfMove.containsKey(ID)) continue;
 			Cell currentPosition = positions[i];
 
-			// If in objective zone, hold ground
-			if (currentPosition.isInObjectiveZone()) continue;
+			// TODO fall back when health is low (get closer to Healer?)
+
+			if (destinations.containsKey(ID)) {
+				Cell destination = destinations.get(ID);
+				if (!currentPosition.equals(destination)) {
+					Direction[] toTheObjective = world.getPathMoveDirections(currentPosition, destination, positions);
+					if (toTheObjective.length == 0) {  // FIXME have no idea why this happens
+						System.out.println("ERROR in turn " + world.getCurrentTurn() + " and phase " + phase);
+						System.out.println(hero.getName() + " should be in (" + currentPosition.getRow() + ", " + currentPosition.getColumn() + ")");
+						System.out.println(hero.getName() + " is actually in (" + hero.getCurrentCell().getRow() + ", " + hero.getCurrentCell().getColumn() + ")");
+						System.out.println("Destination is (" + destination.getRow() + ", " + destination.getColumn() + ")");
+						System.out.println();
+						continue;
+					}
+
+					if (isWorthDodging(hero, destination, world.manhattanDistance(currentPosition, destination), toTheObjective, positions, world)) continue;
+					world.moveHero(ID, toTheObjective[0]);
+
+					// Update AP
+					AP -= hero.getMoveAPCost();
+
+					// Update hero position
+					positions[i] = getNewPosition(currentPosition, toTheObjective[0], map);
+				}
+				continue;
+			}
 
 			// Otherwise try to reach the nearest objective zone cell
 			Pair[] objectiveZone = Arrays.stream(map.getObjectiveZone()).map(cell -> new Pair<>(cell, world.manhattanDistance(currentPosition, cell))).sorted(Comparator.comparingInt(Pair::getSecond)).toArray(Pair[]::new);
 
 			// Try to select an objective zone and move toward it
-			for (Pair objective : objectiveZone) {  // FIXME spread around the zone
+			for (Pair objective : objectiveZone) {
 				Cell destination = (Cell) objective.getFirst();
 				int distance = (Integer) objective.getSecond();
 
@@ -86,29 +198,8 @@ public class AI {
 					destinations.put(ID, destination);
 
 					// Check if it is worth to not to move and instead dodge at action phase
-					Ability dodge = hero.getDodgeAbilities()[0];
-					if (phase == 1 && AP >= dodge.getAPCost() && dodge.isReady() && toTheObjective.length - (7 - phase) >= distance - dodge.getRange()) {
-						Cell nearer = currentPosition;
-						for (int j = 0; j < dodge.getRange(); ++j) {
-							Cell next = nearer;
-							int left = distance;
-							for (int k = 0; k < 4; ++k) {
-								Cell temp = getNewPosition(nearer, Direction.values()[k], map);
-								int leftTemp = world.manhattanDistance(destination, temp);
-								if (leftTemp < left) {
-									next = temp;
-									left = leftTemp;
-								}
-							}
-							nearer = next;
-						}
-						if (!nearer.isWall() && world.getPathMoveDirections(nearer, destination, positions).length < toTheObjective.length) {
-							dodgeInsteadOfMove.put(ID, nearer);
-							AP -= dodge.getAPCost();
-							continue heroes;
-						}
-					}
-					world.moveHero(ID, toTheObjective[0]);  // TODO heroes should get closer to each other to cast defensive abilities
+					if (isWorthDodging(hero, destination, distance, toTheObjective, positions, world)) continue heroes;
+					world.moveHero(ID, toTheObjective[0]);
 
 					// Update AP
 					AP -= hero.getMoveAPCost();
@@ -143,6 +234,8 @@ public class AI {
 				dodgeInsteadOfMove.remove(ID);
 				continue;
 			}
+
+			// TODO use dodge when attack is predicted
 
 			switch (hero.getName()) {
 				case HEALER:
