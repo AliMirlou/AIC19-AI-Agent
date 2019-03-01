@@ -76,14 +76,14 @@ public class AI {
 
 		// Find middle of respawn zone as starting cell for distance checking
 		Cell[] respawnZone = world.getMap().getMyRespawnZone();
-		int sumRow = 0, sumColumn = 0;
+		int aveRow = 0, aveColumn = 0;
 		for (Cell cell : respawnZone) {
-			sumRow += cell.getRow();
-			sumColumn += cell.getColumn();
+			aveRow += cell.getRow();
+			aveColumn += cell.getColumn();
 		}
-		sumRow /= respawnZone.length;
-		sumColumn /= respawnZone.length;
-		Cell compare = world.getMap().getCell(sumRow, sumColumn);
+		aveRow /= respawnZone.length;
+		aveColumn /= respawnZone.length;
+		Cell compare = world.getMap().getCell(aveRow, aveColumn);
 
 		// Find 4 best objective cells for heroes to stand
 		Cell[] objectiveZone = world.getMap().getObjectiveZone(), temp = new Cell[4];
@@ -230,7 +230,7 @@ public class AI {
 		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
 
 		Hero[] visibleEnemies = Arrays.stream(world.getOppHeroes()).filter(hero -> hero.getCurrentCell().isInVision()).sorted(Comparator.comparingInt(hero -> hero.getName() == HeroName.HEALER ? 0 : hero.getCurrentHP())).toArray(Hero[]::new);
-		var enemyHealths = Arrays.stream(visibleEnemies).collect(Collectors.toMap(o -> o, Hero::getCurrentHP));
+		HashMap<Hero, Integer> enemyHealths = new HashMap<>(Arrays.stream(visibleEnemies).collect(Collectors.toMap(o -> o, Hero::getCurrentHP)));
 
 		// Perform the decided dodges first
 		for (int ID : dodgeInsteadOfMove.keySet()) {
