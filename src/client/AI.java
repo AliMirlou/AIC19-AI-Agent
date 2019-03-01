@@ -74,10 +74,21 @@ public class AI {
 		destinations = new HashMap<>();
 		dodgeInsteadOfMove = new HashMap<>();
 
+		// Find middle of respawn zone as starting cell for distance checking
+		Cell[] respawnZone = world.getMap().getMyRespawnZone();
+		int sumRow = 0, sumColumn = 0;
+		for (Cell cell : respawnZone) {
+			sumRow += cell.getRow();
+			sumColumn += cell.getColumn();
+		}
+		sumRow /= respawnZone.length;
+		sumColumn /= respawnZone.length;
+		Cell compare = world.getMap().getCell(sumRow, sumColumn);
+
 		// Find 4 best objective cells for heroes to stand
 		Cell[] objectiveZone = world.getMap().getObjectiveZone(), temp = new Cell[4];
 		int numOfObjectives = objectiveZone.length;
-		Cell nearest = objectiveZone[numOfObjectives / 2], compare = world.getMap().getMyRespawnZone()[0];
+		Cell nearest = objectiveZone[numOfObjectives / 2];
 
 		for (int i1 = 0; i1 < numOfObjectives; ++i1) {
 			temp[0] = objectiveZone[i1];
