@@ -165,7 +165,7 @@ public class AI {
 				if (!currentPosition.equals(destination)) {
 					Direction[] toTheObjective = world.getPathMoveDirections(currentPosition, destination, positions);
 					if (toTheObjective.length == 0) {  // FIXME have no idea why this happens
-						System.out.println("ERROR in turn " + world.getCurrentTurn() + " and phase " + phase);
+						System.out.println("ERROR in turn " + (world.getCurrentTurn() - 3) + " and phase " + phase);
 						System.out.println(hero.getName() + " should be in (" + currentPosition.getRow() + ", " + currentPosition.getColumn() + ")");
 						System.out.println(hero.getName() + " is actually in (" + hero.getCurrentCell().getRow() + ", " + hero.getCurrentCell().getColumn() + ")");
 						System.out.println("Destination is (" + destination.getRow() + ", " + destination.getColumn() + ")");
@@ -218,7 +218,7 @@ public class AI {
 		phase = 0;
 		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
 
-		Hero[] visibleEnemies = Arrays.stream(world.getOppHeroes()).filter(hero -> hero.getCurrentCell().isInVision()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
+		Hero[] visibleEnemies = Arrays.stream(world.getOppHeroes()).filter(hero -> hero.getCurrentCell().isInVision()).sorted(Comparator.comparingInt(hero -> hero.getName() == HeroName.HEALER ? 0 : hero.getCurrentHP())).toArray(Hero[]::new);
 		var enemyHealths = Arrays.stream(visibleEnemies).collect(Collectors.toMap(o -> o, Hero::getCurrentHP));
 
 		// Perform the decided dodges first
@@ -245,7 +245,7 @@ public class AI {
 					// Heal if there is a damaged hero
 					Ability heal = hero.getAbility(AbilityName.HEALER_HEAL);
 					if (!heal.isReady()) break;
-					for (Hero otherHero : heroes) {
+					for (Hero otherHero : heroes) {  // FIXME healer better not to heal self
 						// Heal the other hero if lost HP is more than heal power (so it won't be wasted)
 						if (otherHero.getMaxHP() - otherHero.getCurrentHP() >= heal.getPower()) {
 							Cell otherHeroPosition = otherHero.getCurrentCell();
@@ -267,7 +267,7 @@ public class AI {
 					Cell enemyPosition = enemy.getCurrentCell();
 
 					// Non-lobbing abilities require the target cell to be visible by the caster
-					if (!ability.isLobbing() && !world.isInVision(myPosition, enemyPosition)) continue;
+					if (!(ability.isLobbing() || world.isInVision(myPosition, enemyPosition))) continue;
 
 					// Check if it hits anyone
 					Hero[] impactedEnemies = world.getAbilityTargets(abilityName, myPosition, enemyPosition);
