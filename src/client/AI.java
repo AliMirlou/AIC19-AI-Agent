@@ -5,6 +5,7 @@ import client.model.*;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 public class AI {
 	private int phase = 0;
@@ -216,7 +217,9 @@ public class AI {
 	public void actionTurn(World world) {
 		phase = 0;
 		Hero[] heroes = Arrays.stream(world.getMyHeroes()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
+
 		Hero[] visibleEnemies = Arrays.stream(world.getOppHeroes()).filter(hero -> hero.getCurrentCell().isInVision()).sorted(Comparator.comparingInt(Hero::getCurrentHP)).toArray(Hero[]::new);
+		var enemyHealths = Arrays.stream(visibleEnemies).collect(Collectors.toMap(o -> o, Hero::getCurrentHP));
 
 		// Perform the decided dodges first
 		for (int ID : dodgeInsteadOfMove.keySet()) {
@@ -260,14 +263,22 @@ public class AI {
 				if (!ability.isReady()) continue;
 				AbilityName abilityName = ability.getName();
 				for (Hero enemy : visibleEnemies) {
+					if (enemyHealths.get(enemy) <= 0) continue;
 					Cell enemyPosition = enemy.getCurrentCell();
 
 					// Non-lobbing abilities require the target cell to be visible by the caster
 					if (!ability.isLobbing() && !world.isInVision(myPosition, enemyPosition)) continue;
 
 					// Check if it hits anyone
-					if (world.getAbilityTargets(abilityName, myPosition, enemyPosition).length != 0) {
+					Hero[] impactedEnemies = world.getAbilityTargets(abilityName, myPosition, enemyPosition);
+					if (impactedEnemies.length != 0) {
 						world.castAbility(ID, abilityName, enemyPosition.getRow(), enemyPosition.getColumn());
+
+						// Update enemy healths
+						int power = ability.getPower();
+						for (Hero enemy2 : impactedEnemies)
+							enemyHealths.put(enemy2, enemyHealths.get(enemy2) - power);
+
 						continue heroes;
 					} else {
 						// TODO get closer to target to be able to cast ability
