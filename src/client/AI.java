@@ -13,6 +13,7 @@ public class AI {
 	private Cell[] bestDestinations;
 	private HashMap<Integer, Cell> destinations;  // Keys are hero IDs and values are the current destination of hero
 	private HashMap<Integer, Cell> dodgeInsteadOfMove;  // Keys are hero IDs and values are the destination of dodge
+	private Pair[] FoV;  // Field of view from every cell to objective zone (first value is the number of cells of objective zone in vision and second value is the starting cell object)
 
 	private Cell getNewPosition(Cell cell, Direction direction, Map map) {
 		int rowChange = 0, columnChange = 0;
@@ -86,9 +87,26 @@ public class AI {
 		Cell compare = world.getMap().getCell(aveRow, aveColumn);
 
 		// Find 4 best objective cells for heroes to stand
-		Cell[] objectiveZone = world.getMap().getObjectiveZone(), temp = new Cell[4];
+		Cell[] objectiveZone = world.getMap().getObjectiveZone(), temp = new Cell[3];
 		int numOfObjectives = objectiveZone.length;
 		Cell nearest = objectiveZone[numOfObjectives / 2];
+
+		// Exclusively for SENTRY because it has infinite range Ray ability
+		Cell[][] map = world.getMap().getCells();
+		FoV = new Pair[map.length * map[0].length];
+		int index = 0;
+		for (Cell[] row : map)
+			for (Cell cell : row) {
+				int num = 0;
+				for (Cell objective : objectiveZone)
+					if (world.isInVision(cell, objective))
+						++num;
+				FoV[index++] = new Pair<>(num, cell);
+			}
+		FoV = Arrays.stream(FoV)
+				.sorted(Comparator.comparingInt(value -> world.manhattanDistance(compare, (Cell) value.getSecond())))
+				.sorted(Comparator.comparingInt(value -> Integer.MAX_VALUE - (int) value.getFirst()))
+				.toArray(Pair[]::new);
 
 		for (int i1 = 0; i1 < numOfObjectives; ++i1) {
 			temp[0] = objectiveZone[i1];
@@ -98,15 +116,10 @@ public class AI {
 				for (int i3 = i2 + 1; i3 < numOfObjectives; ++i3) {
 					if (isInBadDistance(objectiveZone[i3], temp, world)) continue;
 					temp[2] = objectiveZone[i3];
-					for (int i4 = i3 + 1; i4 < numOfObjectives; ++i4) {
-						if (isInBadDistance(objectiveZone[i4], temp, world)) continue;
-						temp[3] = objectiveZone[i4];
-						temp = Arrays.stream(temp).sorted(Comparator.comparingInt(cell -> world.manhattanDistance(compare, cell))).toArray(Cell[]::new);
-						if (world.manhattanDistance(compare, temp[0]) < world.manhattanDistance(compare, nearest)) {
-							bestDestinations = temp.clone();
-							nearest = temp[0];
-						}
-						temp[3] = null;
+					temp = Arrays.stream(temp).sorted(Comparator.comparingInt(cell -> world.manhattanDistance(compare, cell))).toArray(Cell[]::new);
+					if (world.manhattanDistance(compare, temp[0]) < world.manhattanDistance(compare, nearest)) {
+						bestDestinations = temp.clone();
+						nearest = temp[0];
 					}
 					temp[2] = null;
 				}
@@ -136,8 +149,9 @@ public class AI {
 	public void moveTurn(World world) {
 		++phase;
 
-		if (destinations.isEmpty() && bestDestinations != null && bestDestinations.length == 4) {
-			int dummyIndex = 2;
+		// Condition satisfies only in the first turn
+		if (destinations.isEmpty() && bestDestinations != null) {
+			int dummyIndex = 1;
 			for (Hero hero : world.getMyHeroes()) {
 				Cell destination;
 				switch (hero.getName()) {
@@ -145,7 +159,7 @@ public class AI {
 						destination = bestDestinations[0];
 						break;
 					case SENTRY:
-						destination = bestDestinations[1];
+						destination = (Cell) FoV[0].getSecond();
 						break;
 					default:
 						destination = bestDestinations[dummyIndex++];
